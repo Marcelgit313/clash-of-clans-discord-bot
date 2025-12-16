@@ -1,0 +1,24 @@
+{
+  "prisma": {
+    "executable": "./node_modules/.bin/prisma",
+  },
+  "database": {
+    "url": "postgresql://uwu:owo@localhost:5432/uwu?schema=public",
+  },
+  "discord": {
+    "botToken": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "guildId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "warLogChannel": "XXXXXXXXXXXXXXXXX",
+    "warAttacksChannel": "XXXXXXXXXXXXXXXXXXXX",
+  },
+  "coc": {
+    "api_token": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "clanTag": "#XXXXXXXX",
+    "cronClan": "0 0 */1 * * *",
+    "cronWar": "0 */10 * * * *"
+  },
+  "logging": {
+    "level": "debug",
+    "format": "default",
+  }
+}

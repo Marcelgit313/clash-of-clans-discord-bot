@@ -1,0 +1,109 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WarType {
+  CLAN_WAR
+  CWL
+}
+
+model Player {
+  tag  String @id
+  name String
+
+  townHallLevel Int
+  expLevel      Int
+
+  trophies     Int
+  bestTrophies Int
+  warStars     Int
+
+  donations Int
+  received  Int
+
+  leagueTier    String?
+  leagueIconUrl String?
+
+  discordId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clan   Clan?   @relation(fields: [clanId], references: [tag])
+  clanId String?
+
+  attacks  WarAttack[] @relation("Attacker")
+  defenses WarAttack[] @relation("Defender")
+}
+
+model Clan {
+  tag         String @id
+  name        String
+  description String
+
+  level  Int
+  points Int
+
+  warWinStreak Int
+  warWins      Int
+  warTies      Int
+  warLosses    Int
+
+  badgeUrl String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members Player[]
+
+  homeWars     ClanWar[] @relation("HomeClanWars")
+  opponentWars ClanWar[] @relation("OpponentClanWars")
+}
+
+model ClanWar {
+  tag String @id
+
+  homeClanTag     String
+  opponentClanTag String
+
+  type  WarType
+  state String
+
+  startTime DateTime
+  endTime   DateTime?
+
+  status String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  homeClan     Clan        @relation("HomeClanWars", fields: [homeClanTag], references: [tag])
+  opponentClan Clan        @relation("OpponentClanWars", fields: [opponentClanTag], references: [tag])
+  attacks      WarAttack[]
+}
+
+model WarAttack {
+  tag String @id
+
+  attackerTag String
+  defenderTag String
+
+  stars       Int
+  destruction Float
+  orderIndex  Int
+
+  createdAt DateTime @default(now())
+
+  war ClanWar @relation(fields: [tag], references: [tag])
+
+  attacker Player @relation("Attacker", fields: [attackerTag], references: [tag])
+  defender Player @relation("Defender", fields: [defenderTag], references: [tag])
+
+  @@unique([tag, attackerTag, defenderTag])
+}

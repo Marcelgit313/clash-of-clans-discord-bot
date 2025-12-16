@@ -1,0 +1,14 @@
+version: '3'
+services:
+  bot-database:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=uwu
+      - POSTGRES_PASSWORD=owo
+    container_name: bot-database
+    expose:
+      - 5432
+    volumes:
+      - ./.postgres/api-data:/var/lib/postgresql/data:rw
+    ports:
+      - 5432:5432

@@ -1,0 +1,19 @@
+{
+  "database": {
+    "url": "DATABASE_URL",
+  },
+  "discord": {
+    "botToken": "DISCORD_BOT_TOKEN",
+    "guildId": "DISCORD_GUILD_ID",
+    "warLogChannel": "DISCORD_WAR_LOG_CHANNEL",
+    "warAttacksChannel": "DISCORD_WAR_ATTACKS_CHANNEL",
+  },
+  "coc": {
+    "api_token": "COC_API_TOKEN",
+    "clanTag": "COC_CLAN_TAG",
+  },
+  logging: {
+    level: "LOGGING_LEVEL",
+    format: "LOGGING_FORMAT",
+  }
+}

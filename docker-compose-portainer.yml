@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+    coc-bot:
+      build:
+        context: .
+        dockerfile: Dockerfile
+        target: prod
+      image: coc-bot:latest
+      restart: unless-stopped
+      depends_on:
+        coc-bot-postgres:
+          condition: service_healthy
+      environment:
+        NODE_ENV: ${NODE_ENV}
+        DATABASE_URL: ${DATABASE_URL}
+        DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+        DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+        DISCORD_WAR_LOG_CHANNEL: ${DISCORD_WAR_LOG_CHANNEL}
+        DISCORD_WAR_ATTACKS_CHANNEL: ${DISCORD_WAR_ATTACKS_CHANNEL}
+        COC_API_TOKEN: ${COC_API_TOKEN}
+        COC_CLAN_TAG: ${COC_CLAN_TAG}
+        LOGGING_LEVEL: ${LOGGING_LEVEL}
+        LOGGING_FORMAT: ${LOGGING_FORMAT}
+
+    coc-bot-postgres:
+      image: postgres:15
+      environment:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      restart: unless-stopped
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_URL}" ]
+        interval: 10s
+        timeout: 3s
+        retries: 3
+      volumes:
+        - ./.postgres/coc-bot-data:/var/lib/postgresql/data:rw
