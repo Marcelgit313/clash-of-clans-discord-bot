@@ -9,8 +9,7 @@ services:
       image: coc-bot:latest
       restart: unless-stopped
       depends_on:
-        coc-bot-postgres:
-          condition: service_healthy
+        - coc-bot-postgres
       environment:
         NODE_ENV: ${NODE_ENV}
         DATABASE_URL: ${DATABASE_URL}
@@ -22,6 +21,8 @@ services:
         COC_CLAN_TAG: ${COC_CLAN_TAG}
         LOGGING_LEVEL: ${LOGGING_LEVEL}
         LOGGING_FORMAT: ${LOGGING_FORMAT}
+      networks:
+        - coc-bot-network
 
     coc-bot-postgres:
       image: postgres:15
@@ -29,10 +30,14 @@ services:
         POSTGRES_USER: ${POSTGRES_USER}
         POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       restart: unless-stopped
-      healthcheck:
-        test: [ "CMD-SHELL", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_URL}" ]
-        interval: 10s
-        timeout: 3s
-        retries: 3
       volumes:
-        - ./.postgres/coc-bot-data:/var/lib/postgresql/data:rw
+        - ./pgdata:/var/lib/postgresql/data:rw
+      networks:
+        - coc-bot-network
+
+networks:
+  coc-bot-network:
+    driver: bridge
+
+volumes:
+  pgdata:

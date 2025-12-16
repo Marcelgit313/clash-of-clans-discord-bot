@@ -35,4 +35,4 @@ COPY --chown=node:node ./config ./config
 
 ENV PRISMA_EXECUTABLE=/usr/local/bin/prisma
 
-CMD [ "node", "dist/src/main.js" ]
+CMD [ "node", "dist/main.js" ]
