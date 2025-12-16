@@ -2,11 +2,7 @@ version: "3.9"
 
 services:
     coc-bot:
-      build:
-        context: .
-        dockerfile: Dockerfile
-        target: prod
-      image: coc-bot:latest
+      image: kampfcookie313/coc-bot:latest
       restart: unless-stopped
       depends_on:
         - coc-bot-postgres
