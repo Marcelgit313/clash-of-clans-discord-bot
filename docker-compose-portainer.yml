@@ -28,7 +28,7 @@ services:
       restart: unless-stopped
       volumes:
         - ./pgdata:/var/lib/postgresql/data:rw
-        - ./cacheDate:/home/node/cache:rw
+        - ./cacheData:/home/node/cache:rw
       networks:
         - coc-bot-network
 
@@ -38,4 +38,4 @@ networks:
 
 volumes:
   pgdata:
-  cacheDate:
+  cacheData:
