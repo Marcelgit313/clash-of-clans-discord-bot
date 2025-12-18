@@ -1,0 +1,4 @@
+.postgres
+.env
+config/local-development.json5
+config/cache.sqlite
