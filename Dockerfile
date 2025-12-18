@@ -9,6 +9,8 @@ COPY --chown=node:node package*.json ./
 COPY --chown=node:node prisma ./prisma/
 RUN --mount=type=secret,id=npmrc,target=./.npmrc,uid=1000 npm install --ignore-scripts
 
+RUN npx prisma generate
+
 COPY --chown=node:node . .
 RUN npm run build
 
@@ -16,7 +18,7 @@ RUN npm run build
 ## prod stage
 FROM node:20-alpine as prod
 RUN apk add --no-cache openssl
-RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
+RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app && mkdir -p /home/node/cache && chown -R node:node /home/node/cache
 RUN npm install -g prisma
 RUN chown -R node:node /usr/local/lib/node_modules
 WORKDIR /home/node/app

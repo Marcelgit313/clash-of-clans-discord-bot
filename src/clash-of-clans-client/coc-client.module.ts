@@ -1,10 +1,10 @@
 import { Module } from "@nestjs/common";
 import { CommonModule } from "../common/common.module.js";
 import { CocClientService } from "./coc-client.service.js";
-import { DiscordEmbedModule } from "../discord-embed/discord-embed.module.js";
+import { DiscordClientModule } from "../discord-client/discord-client.module.js";
 
 @Module({
-  imports: [CommonModule, DiscordEmbedModule],
+  imports: [CommonModule, DiscordClientModule],
   providers: [CocClientService],
   exports: [CocClientService],
 })

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import config from "config";
-import { EmbedBuilder, GatewayIntentBits, Guild, Partials, TextChannel } from "discord.js";
+import { EmbedBuilder, GatewayIntentBits, Guild, TextChannel } from "discord.js";
 import { Client } from "discordx";
 import { Logger } from "../common/logger/logger.js";
 
@@ -25,7 +25,6 @@ export class DiscordClientService {
       botGuilds: [(client): string[] => client.guilds.cache.map((guild) => guild.id)],
 
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
-      partials: [Partials.Message],
 
       silent: false,
     });
@@ -45,7 +44,6 @@ export class DiscordClientService {
 
     const guild = await this.getGuild();
     DiscordClientService.guildIconUrl = guild.iconURL();
-    await this.client.user?.setAvatar(DiscordClientService.guildIconUrl);
   }
 
   private async getGuild(): Promise<Guild> {
@@ -55,16 +53,41 @@ export class DiscordClientService {
     return this.guild;
   }
 
-  public async sendMessage(channelID: string, message: EmbedBuilder): Promise<void> {
-    if (channelID === "warLogChannel" && this.warLogChannel) {
-      await this.warLogChannel.send({ embeds: [message] });
-      this.logger.log("Sending message to WarLogChannel");
-    } else if (channelID === "warAttacksChannel" && this.warAttacksChannel) {
-      await this.warAttacksChannel.send({ embeds: [message] });
-      this.logger.log("Sending message to WarAttacksChannel");
-    } else {
-      this.logger.warn("Error sending message to Channel");
-      throw new Error("Invalid message channel ID");
+  public async sendMessage(channelID: string, message: EmbedBuilder): Promise<string | undefined> {
+    try {
+      if (channelID === "warLogChannel" && this.warLogChannel) {
+        const msg = await this.warLogChannel.send({ embeds: [message] });
+        this.logger.log("Sending message to WarLogChannel");
+        return msg.id;
+      } else if (channelID === "warAttacksChannel" && this.warAttacksChannel) {
+        const msg = await this.warAttacksChannel.send({ embeds: [message] });
+        this.logger.log("Sending message to WarAttacksChannel");
+        return msg.id;
+      } else {
+        this.logger.warn("Error sending message to Channel");
+        return undefined;
+      }
+    } catch (error) {
+      this.logger.error("Error sending message to Channel: [%s]", error);
+      return undefined;
+    }
+  }
+
+  public async editMessage(
+    channelID: string,
+    messageId: string,
+    message: EmbedBuilder
+  ): Promise<void> {
+    try {
+      if (channelID === "warLogChannel" && this.warLogChannel) {
+        const msg = await this.warLogChannel.messages.fetch(messageId);
+        await msg.edit({ embeds: [message] });
+        this.logger.log("Editing message in WarLogChannel id [%s]", messageId);
+      } else {
+        this.logger.warn("Error editing message in Channel");
+      }
+    } catch (error) {
+      this.logger.error("Error editing message in Channel: [%s]", error);
     }
   }
 

@@ -4,17 +4,10 @@ import { DiscordClientModule } from "./discord-client/discord-client.module.js";
 import { CocClientModule } from "./clash-of-clans-client/coc-client.module.js";
 import { Logger } from "./common/logger/logger.js";
 import config from "config";
-import { DiscordEmbedModule } from "./discord-embed/discord-embed.module.js";
 import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
-  imports: [
-    ScheduleModule.forRoot(),
-    CommonModule,
-    DiscordClientModule,
-    CocClientModule,
-    DiscordEmbedModule,
-  ],
+  imports: [ScheduleModule.forRoot(), CommonModule, DiscordClientModule, CocClientModule],
 })
 export class AppModule {
   private readonly logger = new Logger(AppModule.name);

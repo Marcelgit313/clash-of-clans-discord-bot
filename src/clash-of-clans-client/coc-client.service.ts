@@ -1,19 +1,29 @@
 import config from "config";
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { Player, Clan, Client, ClanWar, ClanWarLeagueGroup } from "clashofclans.js";
+import { Player, Clan, Client, ClanWar, ClanWarLeagueGroup, HTTPError } from "clashofclans.js";
 import { Logger } from "../common/logger/logger.js";
 import { PrismaService } from "../common/prisma/prisma.service.js";
 import { ClashPlayer } from "./entity/clash-player.entity.js";
 import { WarType } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library.js";
-import { DiscordEmbedService } from "../discord-embed/discord-embed.service.js";
+import { CacheService } from "../common/cache/cache.service.js";
+import { DiscordClientService } from "../discord-client/discord-client.service.js";
+import { WarStartedEmbed } from "../discord-ressources/embeds/war-started.embed.js";
+import { WarSearchEmbed } from "../discord-ressources/embeds/war-search.embed.js";
+import { WarFinishedEmbed } from "../discord-ressources/embeds/war-finished.embed.js";
+import { WarAttackEmbed } from "../discord-ressources/embeds/war-attack.embed.js";
+import { WarStatusEmbed } from "../discord-ressources/embeds/war-status.embed.js";
 
 const CLASH_OF_CLANS_API_KEY = config.get<string>("coc.api_token");
 const CLASH_OF_CLANS_CLAN_TAG = config.get<string>("coc.clanTag");
 
 const CLAN_SYNC_CRON = config.get<string>("coc.cronClan");
 const WAR_SYNC_CRON = config.get<string>("coc.cronWar");
+
+const CACHE_KEY = "coc_clan_data";
+const WAR_LOG_CHANNEL_ID = "warLogChannel";
+const WAR_ATTACK_CHANNEL_ID = "warAttacksChannel";
 
 @Injectable()
 export class CocClientService implements OnModuleInit {
@@ -25,7 +35,8 @@ export class CocClientService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly discordEmbed: DiscordEmbedService
+    private readonly discord: DiscordClientService,
+    private readonly cache: CacheService
   ) {
     this.client = new Client({ keys: [CLASH_OF_CLANS_API_KEY] });
   }
@@ -74,29 +85,38 @@ export class CocClientService implements OnModuleInit {
   }
 
   private async syncClanWar(): Promise<void> {
-    this.logger.log("Start sync of Clanwar ...");
-    const war = await this.client.getCurrentWar(CLASH_OF_CLANS_CLAN_TAG);
+    try {
+      this.logger.log("Start sync of Clanwar ...");
+      const war = await this.client.getCurrentWar(CLASH_OF_CLANS_CLAN_TAG);
 
-    if (!war || war.state === "notInWar") return;
+      if (!war || war.state === "notInWar") return;
 
-    await this.syncWar(war, WarType.CLAN_WAR);
+      await this.syncWar(war, WarType.CLAN_WAR);
+    } catch (error: unknown) {
+      if (error instanceof HTTPError && error.reason.includes("notFound")) {
+        const embed = new WarSearchEmbed().build();
+        await this.discord.sendMessage(WAR_LOG_CHANNEL_ID, embed);
+      } else {
+        this.logger.error("Unkown error while syncing clan war [%s]", error);
+      }
+    }
   }
 
   private async syncWar(war: ClanWar, type: WarType): Promise<void> {
-    const opponent = await this.client.getClan(war.opponent.tag);
-    await this.createOrUpdateClan(opponent);
-
-    const members = await opponent.fetchMembers();
-    for (const member of members) {
-      await this.createOrUpdatePlayer(member);
-    }
-
     const warTag = this.getWarId(war, type);
     const existingWar = await this.prisma.clanWar.findUnique({
       where: { tag: warTag },
     });
 
     if (!existingWar) {
+      const opponent = await this.client.getClan(war.opponent.tag);
+      await this.createOrUpdateClan(opponent);
+
+      const members = await opponent.fetchMembers();
+      for (const member of members) {
+        await this.createOrUpdatePlayer(member);
+      }
+
       await this.prisma.clanWar.create({
         data: {
           tag: warTag,
@@ -109,7 +129,7 @@ export class CocClientService implements OnModuleInit {
         },
       });
 
-      this.logger.log("Finished creating War: [%s]", warTag);
+      this.logger.log("New War created: [%s]", warTag);
 
       const clanMembers: ClashPlayer[] = await this.getClanMembers(CLASH_OF_CLANS_CLAN_TAG);
       const inWar = clanMembers.filter((member) =>
@@ -117,15 +137,50 @@ export class CocClientService implements OnModuleInit {
       );
       const inWarNames = inWar.map((member) => member.name).join("\n");
 
-      await this.discordEmbed.onWarStarted(war, opponent.badge.medium, inWarNames);
+      const embed = new WarStartedEmbed(war, opponent.badge.medium, inWarNames).build();
+
+      const message = await this.discord.sendMessage(WAR_LOG_CHANNEL_ID, embed);
+      if (!message) {
+        this.logger.error("Failed to send war started message for war [%s]", warTag);
+      } else {
+        await this.cache.set<string>(`${CACHE_KEY}-${warTag}`, message);
+      }
     } else if (existingWar.state !== war.state) {
       await this.prisma.clanWar.update({
         where: { tag: warTag },
         data: { state: war.state, endTime: war.endTime },
       });
     }
-    if (war.state === "inWar") {
+
+    const existingWarUpdated = await this.prisma.clanWar.findUnique({
+      where: { tag: warTag },
+    });
+    if (existingWarUpdated && existingWarUpdated.state.includes("inWar")) {
       await this.syncWarAttacks(war, warTag);
+      const embed = new WarStatusEmbed(war).build();
+      const cachedMessageId = await this.cache.get<string>(`${CACHE_KEY}-${warTag}`);
+      if (cachedMessageId) {
+        await this.discord.editMessage(WAR_LOG_CHANNEL_ID, cachedMessageId, embed);
+      } else {
+        const msg = await this.discord.sendMessage(WAR_LOG_CHANNEL_ID, embed);
+        if (msg) {
+          await this.cache.set<string>(`${CACHE_KEY}-${warTag}`, msg);
+        }
+      }
+    } else if (
+      existingWarUpdated &&
+      existingWarUpdated.state.includes("warEnded") &&
+      existingWarUpdated.status === null
+    ) {
+      await this.prisma.clanWar.update({
+        where: { tag: warTag },
+        data: {
+          status: war.status,
+        },
+      });
+      const embed = new WarFinishedEmbed(war).build();
+      await this.discord.sendMessage(WAR_LOG_CHANNEL_ID, embed);
+      await this.cache.delete(`${CACHE_KEY}-${warTag}`);
     }
   }
 
@@ -146,20 +201,17 @@ export class CocClientService implements OnModuleInit {
   }
 
   private async syncWarAttacks(war: ClanWar, warTag: string): Promise<void> {
+    this.logger.log("Start sync War attack [%s]", warTag);
+
     const members = [...war.clan.members, ...war.opponent.members];
 
     for (const member of members) {
-      const player = await this.client.getPlayer(member.tag);
-      await this.createOrUpdatePlayer(player);
-
       for (const attack of member.attacks ?? []) {
-        const exists = await this.prisma.warAttack.findUnique({
+        const exists = await this.prisma.warAttack.findFirst({
           where: {
-            tag_attackerTag_defenderTag: {
-              tag: warTag,
-              attackerTag: member.tag,
-              defenderTag: attack.defenderTag,
-            },
+            tag: warTag,
+            attackerTag: member.tag,
+            defenderTag: attack.defenderTag,
           },
         });
 
@@ -176,20 +228,21 @@ export class CocClientService implements OnModuleInit {
             data: {
               tag: warTag,
               attackerTag: member.tag,
-              defenderTag: attack.defenderTag,
+              defenderTag: opponent.tag,
               stars: attack.stars,
               destruction: attack.destruction,
               orderIndex: attack.order,
             },
           });
 
-          await this.discordEmbed.onWarAttack(
+          const embed = new WarAttackEmbed(
             warTag,
             member.name,
             opponent.name,
             attack.stars,
             attack.destruction
-          );
+          ).build();
+          await this.discord.sendMessage(WAR_ATTACK_CHANNEL_ID, embed);
         } catch (error: unknown) {
           if (error instanceof PrismaClientKnownRequestError && error.code === "P2025") {
             this.logger.error("Unknown opponent [%s]", error);

@@ -89,7 +89,7 @@ model ClanWar {
 }
 
 model WarAttack {
-  tag String @id
+  tag String
 
   attackerTag String
   defenderTag String
@@ -105,5 +105,5 @@ model WarAttack {
   attacker Player @relation("Attacker", fields: [attackerTag], references: [tag])
   defender Player @relation("Defender", fields: [defenderTag], references: [tag])
 
-  @@unique([tag, attackerTag, defenderTag])
+  @@id([tag, attackerTag, defenderTag])
 }
