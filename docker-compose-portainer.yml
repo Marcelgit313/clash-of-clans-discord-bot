@@ -17,6 +17,8 @@ services:
         COC_CLAN_TAG: ${COC_CLAN_TAG}
         LOGGING_LEVEL: ${LOGGING_LEVEL}
         LOGGING_FORMAT: ${LOGGING_FORMAT}
+      volumes:
+        - ./cacheData:/home/node/cache:rw
       networks:
         - coc-bot-network
 
@@ -28,7 +30,6 @@ services:
       restart: unless-stopped
       volumes:
         - ./pgdata:/var/lib/postgresql/data:rw
-        - ./cacheData:/home/node/cache:rw
       networks:
         - coc-bot-network
 
