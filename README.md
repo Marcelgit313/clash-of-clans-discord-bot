@@ -131,10 +131,10 @@ The bot uses the [config](https://www.npmjs.com/package/config) library for conf
 
 ### Cron Schedules
 
-The bot uses cron jobs to sync data:
+The bot uses cron jobs to sync data (in 6-field cron format: second minute hour day month weekday):
 
-- **Clan Sync**: `0 0 0 */1 * *` (Daily at midnight)
-- **War Sync**: `0 */10 * * * *` (Every 10 minutes)
+- **Clan Sync**: `0 0 0 */1 * *` (Every day at midnight - second 0, minute 0, hour 0)
+- **War Sync**: `0 */10 * * * *` (Every 10 minutes - second 0, every 10th minute)
 
 These can be customized in `config/default.json5`.
 
